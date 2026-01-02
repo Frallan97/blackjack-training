@@ -50,7 +50,7 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
     >
       {/* Header */}
       <div className="bg-black/20 p-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="px-6 flex items-center justify-between">
           <div className="text-center flex-1">
             <h1 className="text-3xl font-bold text-white">
               Blackjack Card Counting Trainer
@@ -75,15 +75,15 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
       )}
 
       {/* Game table */}
-      <div className="flex-1 flex gap-6 p-6 max-w-[1600px] mx-auto w-full">
+      <div className="flex-1 flex gap-6 p-6 w-full">
         {/* Left Sidebar - Statistics */}
-        <div className="w-72 flex-shrink-0 space-y-4">
+        <div className="w-80 flex-shrink-0 space-y-4">
           <StatsPanel />
           <CountDisplay />
         </div>
 
         {/* Main Game Area */}
-        <div className="flex-1 flex flex-col justify-between min-w-0">
+        <div className="flex-1 flex flex-col justify-between min-w-0 max-w-6xl mx-auto">
           {/* Dealer area */}
           <DealerArea hand={dealerHand} showHoleCard={showDealerHoleCard} />
 
