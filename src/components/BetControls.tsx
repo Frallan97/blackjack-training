@@ -11,7 +11,8 @@ interface BetControlsProps {
 export const BetControls: React.FC<BetControlsProps> = ({ className }) => {
   const { bankroll, currentBet, trueCount, setBet, phase } = useGameStore();
 
-  const isGameActive = phase === 'player-turn' || phase === 'dealer-turn' || phase === 'result';
+  // Can adjust bet when not actively playing (betting phase, result phase, or initial state)
+  const canAdjustBet = phase === 'betting' || phase === 'result';
 
   // Get betting recommendation based on true count
   const recommendation = getBettingRecommendation(trueCount);
@@ -53,7 +54,7 @@ export const BetControls: React.FC<BetControlsProps> = ({ className }) => {
       </div>
 
       {/* Bet Adjustment Controls */}
-      {!isGameActive && (
+      {canAdjustBet && (
         <>
           {/* Plus/Minus Buttons */}
           <div className="flex items-center gap-2">
