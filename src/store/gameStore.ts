@@ -328,8 +328,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentStrategyHint: strategyHint,
     });
 
-    // If busted, move to next hand or dealer turn
-    if (newHand.isBusted) {
+    // If busted or blackjack (21), move to next hand or dealer turn
+    if (newHand.isBusted || newHand.isBlackjack) {
       get().stand();
     }
   },
@@ -379,7 +379,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Split - split pair into two hands
   split: () => {
-    const { deck, playerHands, currentHandIndex, rules } = get();
+    const { deck, playerHands, currentHandIndex, rules, settings, dealerHand, dealtCards } = get();
 
     if (!deck) {
       return;
@@ -410,10 +410,33 @@ export const useGameStore = create<GameState>((set, get) => ({
     newPlayerHands[currentHandIndex] = hand1;
     newPlayerHands.splice(currentHandIndex + 1, 0, hand2);
 
+    // Update count with the two new cards
+    const newDealtCards = [...dealtCards, newCard1, newCard2];
+    const countingSystem = getCountingSystem(settings.countingSystem);
+    const runningCount = calculateRunningCount(newDealtCards, countingSystem);
+    const remainingDecks = deck.getRemainingDecks();
+    const trueCount = calculateTrueCount(runningCount, remainingDecks);
+
+    // Calculate strategy hint for the first split hand
+    const strategyHint = settings.showStrategyHints && !hand1.isBusted && !hand1.isBlackjack
+      ? getBasicStrategyDecision(hand1, dealerHand.cards[0], rules)
+      : null;
+
     set({
       playerHands: newPlayerHands,
-      remainingDecks: deck.getRemainingDecks(),
+      remainingDecks,
+      dealtCards: newDealtCards,
+      runningCount,
+      trueCount,
+      currentStrategyHint: strategyHint,
     });
+
+    // If the first hand is blackjack or busted, automatically move to next hand
+    if (hand1.isBlackjack || hand1.isBusted) {
+      setTimeout(() => {
+        get().stand();
+      }, 300);
+    }
   },
 
   // Dealer plays according to rules
