@@ -156,6 +156,37 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ className, onClose
             className="w-4 h-4"
           />
         </div>
+
+        <div className="flex items-center justify-between bg-white/5 rounded p-3">
+          <Label htmlFor="can-resplit" className="text-white cursor-pointer">
+            Allow Resplitting
+          </Label>
+          <input
+            type="checkbox"
+            id="can-resplit"
+            checked={localRules.canResplit}
+            onChange={(e) => setLocalRules({ ...localRules, canResplit: e.target.checked })}
+            className="w-4 h-4"
+          />
+        </div>
+
+        <div className="bg-white/5 rounded p-3">
+          <Label htmlFor="max-split-hands" className="text-white mb-2 block">
+            Max Split Hands: {localRules.maxSplitHands}
+          </Label>
+          <input
+            type="range"
+            id="max-split-hands"
+            min="2"
+            max="4"
+            value={localRules.maxSplitHands}
+            onChange={(e) => setLocalRules({ ...localRules, maxSplitHands: parseInt(e.target.value) })}
+            className="w-full"
+          />
+          <div className="text-white/60 text-xs mt-1">
+            Number of hands you can create by splitting (2-4)
+          </div>
+        </div>
       </div>
 
       {/* Action Buttons */}

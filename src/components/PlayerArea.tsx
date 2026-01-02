@@ -20,7 +20,13 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
       <div className="text-white text-xl font-semibold">Player</div>
 
       {/* Multiple hands (for split scenarios) */}
-      <div className="flex gap-8">
+      <div
+        className={cn(
+          'flex',
+          // Adjust gap based on number of hands
+          hands.length >= 4 ? 'gap-4' : 'gap-8'
+        )}
+      >
         {hands.map((hand, handIndex) => {
           const isCurrentHand = handIndex === currentHandIndex;
 
@@ -28,7 +34,9 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
             <div
               key={handIndex}
               className={cn(
-                'flex flex-col items-center space-y-3 p-4 rounded-lg transition-all',
+                'flex flex-col items-center space-y-3 rounded-lg transition-all',
+                // Adjust padding for more hands
+                hands.length >= 4 ? 'p-3' : 'p-4',
                 isCurrentHand
                   ? 'bg-white/10 ring-2 ring-yellow-400'
                   : 'bg-white/5'
@@ -42,8 +50,13 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
                 </div>
               )}
 
-              {/* Cards */}
-              <div className="flex gap-2">
+              {/* Cards with adjusted gap */}
+              <div
+                className={cn(
+                  'flex',
+                  hands.length >= 4 ? 'gap-1' : 'gap-2'
+                )}
+              >
                 {hand.cards.map((card) => (
                   <Card key={card.id} card={card} />
                 ))}
@@ -52,7 +65,8 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
               {/* Hand value */}
               <div
                 className={cn(
-                  'text-lg font-medium min-h-[28px]',
+                  'font-medium min-h-[28px]',
+                  hands.length >= 4 ? 'text-base' : 'text-lg',
                   hand.isBusted
                     ? 'text-red-400'
                     : hand.isBlackjack

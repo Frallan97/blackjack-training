@@ -31,7 +31,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onInitializeGame,
   className,
 }) => {
-  const { handResults, playerHands } = useGameStore();
+  const { handResults, playerHands, currentBet, bankroll } = useGameStore();
   const isPlayerTurn = phase === 'player-turn';
   const isGameOver = phase === 'result';
   const isInitialBetting = phase === 'betting';
@@ -202,6 +202,17 @@ export const GameControls: React.FC<GameControlsProps> = ({
             >
               Split
             </Button>
+          </>
+        )}
+
+        {/* Insufficient funds warning for split */}
+        {!isInitialBetting && !isGameOver && isPlayerTurn && !actionsDisabled && currentHand.canSplit && (
+          <>
+            {currentBet * (playerHands.length + 1) > bankroll && (
+              <div className="text-yellow-400 text-xs text-center">
+                ⚠️ Insufficient funds to split (need ${(currentBet * (playerHands.length + 1)).toLocaleString()})
+              </div>
+            )}
           </>
         )}
 

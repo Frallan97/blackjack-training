@@ -77,8 +77,8 @@ const defaultRules: GameRules = {
   penetration: 0.75,
   dealerHitsOn17: true, // H17
   canDoubleAfterSplit: true,
-  canResplit: false,
-  maxSplitHands: 2,
+  canResplit: true, // Allow resplitting pairs
+  maxSplitHands: 4, // Allow up to 4 hands (split 3 times)
   canSurrenderEarly: false,
   canSurrenderLate: false,
   blackjackPayout: 1.5, // 3:2
@@ -379,7 +379,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Split - split pair into two hands
   split: () => {
-    const { deck, playerHands, currentHandIndex, rules, settings, dealerHand, dealtCards } = get();
+    const { deck, playerHands, currentHandIndex, rules, settings, dealerHand, dealtCards, currentBet, bankroll } = get();
 
     if (!deck) {
       return;
@@ -387,7 +387,25 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const currentHand = playerHands[currentHandIndex];
 
-    if (!currentHand.canSplit || playerHands.length >= rules.maxSplitHands) {
+    // Check if player has enough bankroll for additional split bet
+    const totalBetAfterSplit = currentBet * (playerHands.length + 1);
+    if (totalBetAfterSplit > bankroll) {
+      // Not enough money to split
+      return;
+    }
+
+    // Check if hand can be split (has matching pair)
+    if (!currentHand.canSplit) {
+      return;
+    }
+
+    // Check if we've reached max split hands
+    if (playerHands.length >= rules.maxSplitHands) {
+      return;
+    }
+
+    // If resplitting is disabled, don't allow splitting after first split
+    if (!rules.canResplit && playerHands.length > 1) {
       return;
     }
 
