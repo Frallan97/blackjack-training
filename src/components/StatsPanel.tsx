@@ -8,7 +8,7 @@ interface StatsPanelProps {
 }
 
 export const StatsPanel: React.FC<StatsPanelProps> = ({ className }) => {
-  const { stats, resetStats } = useGameStore();
+  const { stats, resetStats, resetBankroll } = useGameStore();
 
   const winRate = stats.handsPlayed > 0
     ? ((stats.wins / stats.handsPlayed) * 100).toFixed(1)
@@ -17,6 +17,13 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ className }) => {
   const blackjackRate = stats.handsPlayed > 0
     ? ((stats.blackjacks / stats.handsPlayed) * 100).toFixed(1)
     : '0.0';
+
+  const handleResetAll = () => {
+    if (confirm('Reset all statistics and bankroll to defaults?')) {
+      resetStats();
+      resetBankroll();
+    }
+  };
 
   return (
     <div className={cn('bg-black/40 rounded-lg p-4 space-y-3', className)}>
@@ -27,11 +34,28 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ className }) => {
         <Button
           variant="ghost"
           size="sm"
-          onClick={resetStats}
+          onClick={handleResetAll}
           className="text-xs text-white/50 hover:text-white h-6 px-2"
         >
-          Reset
+          Reset All
         </Button>
+      </div>
+
+      {/* Total Profit - Prominent Display */}
+      <div className="bg-white/10 rounded-lg p-3 mb-2">
+        <div className="text-white/70 text-xs font-medium mb-1">Total Profit/Loss</div>
+        <div
+          className={cn(
+            'text-3xl font-bold',
+            stats.totalProfit > 0
+              ? 'text-green-400'
+              : stats.totalProfit < 0
+              ? 'text-red-400'
+              : 'text-white'
+          )}
+        >
+          {stats.totalProfit > 0 ? '+' : ''}${stats.totalProfit.toLocaleString()}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

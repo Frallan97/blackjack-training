@@ -11,6 +11,7 @@ interface GameStats {
   losses: number;
   pushes: number;
   blackjacks: number;
+  totalProfit: number;
 }
 
 interface GameSettings {
@@ -28,6 +29,7 @@ interface GameState {
   dealerHand: Hand;
   playerHands: Hand[];
   currentHandIndex: number;
+  handResults: (GameResult | null)[]; // Result for each hand after split
 
   // Game flow
   phase: GamePhase;
@@ -43,6 +45,10 @@ interface GameState {
 
   // Strategy
   currentStrategyHint: StrategyDecision | null;
+
+  // Betting
+  bankroll: number;
+  currentBet: number;
 
   // Statistics
   stats: GameStats;
@@ -62,6 +68,8 @@ interface GameState {
   updateSettings: (settings: Partial<GameSettings>) => void;
   updateRules: (rules: Partial<GameRules>) => void;
   resetStats: () => void;
+  setBet: (amount: number) => void;
+  resetBankroll: () => void;
 }
 
 const defaultRules: GameRules = {
@@ -97,7 +105,12 @@ const loadStats = (): GameStats => {
   const saved = localStorage.getItem('blackjack-stats');
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      // Ensure totalProfit exists for backward compatibility
+      return {
+        ...parsed,
+        totalProfit: parsed.totalProfit ?? 0,
+      };
     } catch (e) {
       console.error('Failed to load stats', e);
     }
@@ -108,7 +121,24 @@ const loadStats = (): GameStats => {
     losses: 0,
     pushes: 0,
     blackjacks: 0,
+    totalProfit: 0,
   };
+};
+
+const loadBankroll = (): number => {
+  const saved = localStorage.getItem('blackjack-bankroll');
+  if (saved) {
+    try {
+      return parseInt(saved, 10);
+    } catch (e) {
+      console.error('Failed to load bankroll', e);
+    }
+  }
+  return 10000; // Default starting bankroll
+};
+
+const saveBankroll = (bankroll: number) => {
+  localStorage.setItem('blackjack-bankroll', bankroll.toString());
 };
 
 const saveSettings = (settings: GameSettings) => {
@@ -126,6 +156,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   dealerHand: HandEvaluator.createEmptyHand(),
   playerHands: [HandEvaluator.createEmptyHand()],
   currentHandIndex: 0,
+  handResults: [],
   phase: 'betting',
   result: null,
   rules: defaultRules,
@@ -133,6 +164,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   trueCount: 0,
   dealtCards: [],
   currentStrategyHint: null,
+  bankroll: loadBankroll(),
+  currentBet: 100,
   stats: loadStats(),
   settings: loadSettings(),
 
@@ -214,18 +247,44 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     // Check for immediate blackjack
+    const { currentBet, bankroll: currentBankroll } = get();
+
     if (playerHand.isBlackjack && dealerHand.isBlackjack) {
-      const updatedStats = { ...get().stats, handsPlayed: get().stats.handsPlayed + 1, pushes: get().stats.pushes + 1 };
-      set({ phase: 'result', result: 'push', stats: updatedStats });
+      // Push - no bankroll change
+      const updatedStats = {
+        ...get().stats,
+        handsPlayed: get().stats.handsPlayed + 1,
+        pushes: get().stats.pushes + 1
+      };
+      set({ phase: 'result', result: 'push', stats: updatedStats, handResults: ['push'] });
       saveStats(updatedStats);
     } else if (playerHand.isBlackjack) {
-      const updatedStats = { ...get().stats, handsPlayed: get().stats.handsPlayed + 1, wins: get().stats.wins + 1, blackjacks: get().stats.blackjacks + 1 };
-      set({ phase: 'result', result: 'blackjack', stats: updatedStats });
+      // Player blackjack - win 1.5x bet
+      const profit = currentBet * rules.blackjackPayout;
+      const newBankroll = currentBankroll + profit;
+      const updatedStats = {
+        ...get().stats,
+        handsPlayed: get().stats.handsPlayed + 1,
+        wins: get().stats.wins + 1,
+        blackjacks: get().stats.blackjacks + 1,
+        totalProfit: get().stats.totalProfit + profit
+      };
+      set({ phase: 'result', result: 'blackjack', stats: updatedStats, bankroll: newBankroll, handResults: ['blackjack'] });
       saveStats(updatedStats);
+      saveBankroll(newBankroll);
     } else if (dealerHand.isBlackjack) {
-      const updatedStats = { ...get().stats, handsPlayed: get().stats.handsPlayed + 1, losses: get().stats.losses + 1 };
-      set({ phase: 'result', result: 'loss', stats: updatedStats });
+      // Dealer blackjack - lose bet
+      const loss = -currentBet;
+      const newBankroll = currentBankroll + loss;
+      const updatedStats = {
+        ...get().stats,
+        handsPlayed: get().stats.handsPlayed + 1,
+        losses: get().stats.losses + 1,
+        totalProfit: get().stats.totalProfit + loss
+      };
+      set({ phase: 'result', result: 'loss', stats: updatedStats, bankroll: newBankroll, handResults: ['loss'] });
       saveStats(updatedStats);
+      saveBankroll(newBankroll);
     }
   },
 
@@ -277,14 +336,25 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Stand - end current hand
   stand: () => {
-    const { playerHands, currentHandIndex } = get();
+    const { playerHands, currentHandIndex, settings, dealerHand, rules } = get();
 
     // If there are more hands to play (from split), move to next hand
     if (currentHandIndex < playerHands.length - 1) {
-      set({ currentHandIndex: currentHandIndex + 1 });
+      const nextHandIndex = currentHandIndex + 1;
+      const nextHand = playerHands[nextHandIndex];
+
+      // Update strategy hint for next hand
+      const strategyHint = settings.showStrategyHints && !nextHand.isBusted && !nextHand.isBlackjack
+        ? getBasicStrategyDecision(nextHand, dealerHand.cards[0], rules)
+        : null;
+
+      set({
+        currentHandIndex: nextHandIndex,
+        currentStrategyHint: strategyHint,
+      });
     } else {
       // All player hands complete, move to dealer turn
-      set({ phase: 'dealer-turn' });
+      set({ phase: 'dealer-turn', currentStrategyHint: null });
       get().dealerPlay();
     }
   },
@@ -391,45 +461,85 @@ export const useGameStore = create<GameState>((set, get) => ({
     const remainingDecks = deck.getRemainingDecks();
     const trueCount = calculateTrueCount(runningCount, remainingDecks);
 
-    // Determine result for each hand (for now, just use first hand)
-    const playerHand = playerHands[0];
-    const comparison = compareHands(playerHand, currentDealerHand);
+    // Determine result for EACH hand (important for splits)
+    const handResults: (GameResult | null)[] = playerHands.map((playerHand) => {
+      if (playerHand.isBusted) {
+        return 'loss';
+      }
 
-    let result: GameResult;
-    if (playerHand.isBlackjack) {
-      result = 'blackjack';
-    } else if (comparison === 'player') {
-      result = 'win';
-    } else if (comparison === 'dealer') {
-      result = 'loss';
-    } else {
-      result = 'push';
-    }
+      const comparison = compareHands(playerHand, currentDealerHand);
+
+      if (playerHand.isBlackjack && playerHands.length === 1) {
+        // Only count as blackjack if it's not from a split
+        return 'blackjack';
+      } else if (comparison === 'player') {
+        return 'win';
+      } else if (comparison === 'dealer') {
+        return 'loss';
+      } else {
+        return 'push';
+      }
+    });
+
+    // Calculate profit/loss
+    const { currentBet, bankroll, rules: gameRules } = get();
+    let netProfit = 0;
+    let totalWins = 0;
+    let totalLosses = 0;
+    let totalPushes = 0;
+    let totalBlackjacks = 0;
+
+    handResults.forEach((handResult) => {
+      if (handResult === 'blackjack') {
+        netProfit += currentBet * gameRules.blackjackPayout;
+        totalWins += 1;
+        totalBlackjacks += 1;
+      } else if (handResult === 'win') {
+        netProfit += currentBet;
+        totalWins += 1;
+      } else if (handResult === 'loss') {
+        netProfit -= currentBet;
+        totalLosses += 1;
+      } else if (handResult === 'push') {
+        // No change to bankroll
+        totalPushes += 1;
+      }
+    });
 
     // Update statistics
     const currentStats = get().stats;
     const updatedStats = {
       ...currentStats,
-      handsPlayed: currentStats.handsPlayed + 1,
-      wins: result === 'win' || result === 'blackjack' ? currentStats.wins + 1 : currentStats.wins,
-      losses: result === 'loss' ? currentStats.losses + 1 : currentStats.losses,
-      pushes: result === 'push' ? currentStats.pushes + 1 : currentStats.pushes,
-      blackjacks: result === 'blackjack' ? currentStats.blackjacks + 1 : currentStats.blackjacks,
+      handsPlayed: currentStats.handsPlayed + playerHands.length,
+      wins: currentStats.wins + totalWins,
+      losses: currentStats.losses + totalLosses,
+      pushes: currentStats.pushes + totalPushes,
+      blackjacks: currentStats.blackjacks + totalBlackjacks,
+      totalProfit: currentStats.totalProfit + netProfit,
     };
+
+    // Update bankroll
+    const newBankroll = bankroll + netProfit;
+
+    // For the main result display, use the first hand's result
+    const mainResult = handResults[0] || 'loss';
 
     set({
       dealerHand: currentDealerHand,
       phase: 'result',
-      result,
+      result: mainResult,
+      handResults,
       remainingDecks,
       dealtCards: newDealtCards,
       runningCount,
       trueCount,
       stats: updatedStats,
+      bankroll: newBankroll,
       currentStrategyHint: null,
     });
 
     saveStats(updatedStats);
+    saveBankroll(newBankroll);
   },
 
   // Reset game to initial state
@@ -461,8 +571,21 @@ export const useGameStore = create<GameState>((set, get) => ({
       losses: 0,
       pushes: 0,
       blackjacks: 0,
+      totalProfit: 0,
     };
     set({ stats: freshStats });
     saveStats(freshStats);
+  },
+
+  // Set bet amount
+  setBet: (amount: number) => {
+    set({ currentBet: Math.max(10, Math.min(amount, get().bankroll)) }); // Min 10, max bankroll
+  },
+
+  // Reset bankroll
+  resetBankroll: () => {
+    const defaultBankroll = 10000;
+    set({ bankroll: defaultBankroll });
+    saveBankroll(defaultBankroll);
   },
 }));

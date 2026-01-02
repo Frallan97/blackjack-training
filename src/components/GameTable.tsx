@@ -6,6 +6,7 @@ import { GameControls } from './GameControls';
 import { CountDisplay } from './CountDisplay';
 import { StatsPanel } from './StatsPanel';
 import { SettingsPanel } from './SettingsPanel';
+import { BetControls } from './BetControls';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 
@@ -61,7 +62,7 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
             onClick={() => setShowSettings(!showSettings)}
             variant="outline"
             size="sm"
-            className="border-white/30 text-white hover:bg-white/10 text-xs md:text-sm"
+            className="border-white text-white hover:bg-white/20 text-xs md:text-sm font-semibold"
           >
             <span className="hidden sm:inline">⚙️ </span>Settings
           </Button>
@@ -79,6 +80,7 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
       <div className="flex-1 flex flex-col lg:flex-row gap-3 md:gap-6 p-3 md:p-6 w-full">
         {/* Left Sidebar - Statistics (hidden on mobile, shown on lg+) */}
         <div className="hidden lg:flex lg:w-80 flex-shrink-0 flex-col gap-4">
+          <BetControls />
           <StatsPanel />
           <CountDisplay />
         </div>
@@ -90,6 +92,7 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
 
           {/* Mobile stats - shown only on mobile */}
           <div className="lg:hidden space-y-3 mb-4">
+            <BetControls />
             <div className="grid grid-cols-2 gap-3">
               <CountDisplay />
               <StatsPanel className="col-span-1" />

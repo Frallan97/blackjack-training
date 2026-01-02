@@ -2,6 +2,7 @@ import React from 'react';
 import { Hand, GamePhase, GameResult, StrategyDecision } from '../types/game';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
+import { useGameStore } from '../store/gameStore';
 
 interface GameControlsProps {
   phase: GamePhase;
@@ -30,6 +31,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onInitializeGame,
   className,
 }) => {
+  const { handResults, playerHands } = useGameStore();
   const isPlayerTurn = phase === 'player-turn';
   const isGameOver = phase === 'result';
   const isInitialBetting = phase === 'betting';
@@ -46,6 +48,30 @@ export const GameControls: React.FC<GameControlsProps> = ({
       case 'split': return 'SPLIT';
       case 'surrender': return 'SURRENDER';
       default: return action.toUpperCase();
+    }
+  };
+
+  const getResultLabel = (handResult: GameResult | null) => {
+    switch (handResult) {
+      case 'win': return 'Win';
+      case 'loss': return 'Loss';
+      case 'push': return 'Push';
+      case 'blackjack': return 'Blackjack!';
+      default: return '';
+    }
+  };
+
+  const getResultColor = (handResult: GameResult | null) => {
+    switch (handResult) {
+      case 'win':
+      case 'blackjack':
+        return 'text-green-400';
+      case 'loss':
+        return 'text-red-400';
+      case 'push':
+        return 'text-yellow-400';
+      default:
+        return 'text-white';
     }
   };
 
@@ -71,21 +97,44 @@ export const GameControls: React.FC<GameControlsProps> = ({
       {/* Game result message */}
       {isGameOver && (
         <div className="text-center space-y-2">
-          <div
-            className={cn(
-              'text-2xl font-bold',
-              result === 'win' || result === 'blackjack'
-                ? 'text-green-400'
-                : result === 'loss'
-                ? 'text-red-400'
-                : 'text-yellow-400'
-            )}
-          >
-            {result === 'win' && 'You Win!'}
-            {result === 'loss' && 'Dealer Wins'}
-            {result === 'push' && 'Push'}
-            {result === 'blackjack' && 'Blackjack!'}
-          </div>
+          {/* Main result for single hand */}
+          {playerHands.length === 1 && (
+            <div
+              className={cn(
+                'text-2xl font-bold',
+                result === 'win' || result === 'blackjack'
+                  ? 'text-green-400'
+                  : result === 'loss'
+                  ? 'text-red-400'
+                  : 'text-yellow-400'
+              )}
+            >
+              {result === 'win' && 'You Win!'}
+              {result === 'loss' && 'Dealer Wins'}
+              {result === 'push' && 'Push'}
+              {result === 'blackjack' && 'Blackjack!'}
+            </div>
+          )}
+
+          {/* Individual hand results for splits */}
+          {playerHands.length > 1 && handResults.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-lg font-semibold text-white/90">Hand Results:</div>
+              <div className="flex gap-3 justify-center">
+                {handResults.map((handResult, index) => (
+                  <div
+                    key={index}
+                    className="bg-black/30 rounded-lg px-4 py-2 border-2 border-white/20"
+                  >
+                    <div className="text-xs text-white/70 mb-1">Hand {index + 1}</div>
+                    <div className={cn('text-lg font-bold', getResultColor(handResult))}>
+                      {getResultLabel(handResult)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
