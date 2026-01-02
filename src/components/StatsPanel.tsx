@@ -32,10 +32,9 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ className }) => {
           Session Statistics
         </div>
         <Button
-          variant="ghost"
           size="sm"
           onClick={handleResetAll}
-          className="text-xs text-white/50 hover:text-white h-6 px-2"
+          className="text-xs bg-red-600/80 hover:bg-red-700 text-white h-6 px-3 font-semibold"
         >
           Reset All
         </Button>

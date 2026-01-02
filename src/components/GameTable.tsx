@@ -60,9 +60,8 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
           </div>
           <Button
             onClick={() => setShowSettings(!showSettings)}
-            variant="outline"
             size="sm"
-            className="border-white text-white hover:bg-white/20 text-xs md:text-sm font-semibold"
+            className="bg-white/10 border border-white hover:bg-white/20 text-white text-xs md:text-sm font-semibold"
           >
             <span className="hidden sm:inline">⚙️ </span>Settings
           </Button>
