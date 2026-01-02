@@ -7,6 +7,7 @@ import { CountDisplay } from './CountDisplay';
 import { StatsPanel } from './StatsPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { BetControls } from './BetControls';
+import { StrategyChartModal } from './StrategyChartModal';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 
@@ -32,6 +33,7 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
   } = useGameStore();
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showStrategyChart, setShowStrategyChart] = useState(false);
 
   const currentHand = playerHands[currentHandIndex] || playerHands[0];
   const showDealerHoleCard = phase === 'dealer-turn' || phase === 'result';
@@ -58,13 +60,22 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
             </h1>
             <p className="text-white/70 mt-1 text-xs md:text-sm hidden sm:block">Master card counting and basic strategy</p>
           </div>
-          <Button
-            onClick={() => setShowSettings(!showSettings)}
-            size="sm"
-            className="bg-white/10 border border-white hover:bg-white/20 text-white text-xs md:text-sm font-semibold"
-          >
-            <span className="hidden sm:inline">⚙️ </span>Settings
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowStrategyChart(!showStrategyChart)}
+              size="sm"
+              className="bg-white/10 border border-white hover:bg-white/20 text-white text-xs md:text-sm font-semibold"
+            >
+              <span className="hidden sm:inline">📊 </span>Chart
+            </Button>
+            <Button
+              onClick={() => setShowSettings(!showSettings)}
+              size="sm"
+              className="bg-white/10 border border-white hover:bg-white/20 text-white text-xs md:text-sm font-semibold"
+            >
+              <span className="hidden sm:inline">⚙️ </span>Settings
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -73,6 +84,11 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <SettingsPanel onClose={() => setShowSettings(false)} />
         </div>
+      )}
+
+      {/* Strategy Chart Overlay */}
+      {showStrategyChart && (
+        <StrategyChartModal onClose={() => setShowStrategyChart(false)} />
       )}
 
       {/* Game table */}
