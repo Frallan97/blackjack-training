@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hand, GamePhase, GameResult } from '../types/game';
+import { Hand, GamePhase, GameResult, StrategyDecision } from '../types/game';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 
@@ -7,6 +7,7 @@ interface GameControlsProps {
   phase: GamePhase;
   result: GameResult;
   currentHand: Hand;
+  strategyHint: StrategyDecision | null;
   onHit: () => void;
   onStand: () => void;
   onDouble: () => void;
@@ -20,6 +21,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   phase,
   result,
   currentHand,
+  strategyHint,
   onHit,
   onStand,
   onDouble,
@@ -36,8 +38,36 @@ export const GameControls: React.FC<GameControlsProps> = ({
   const actionsDisabled =
     !isPlayerTurn || currentHand.isBusted || currentHand.isBlackjack;
 
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case 'hit': return 'HIT';
+      case 'stand': return 'STAND';
+      case 'double': return 'DOUBLE';
+      case 'split': return 'SPLIT';
+      case 'surrender': return 'SURRENDER';
+      default: return action.toUpperCase();
+    }
+  };
+
   return (
     <div className={cn('flex flex-col items-center space-y-4 p-6', className)}>
+      {/* Strategy Hint */}
+      {strategyHint && isPlayerTurn && !actionsDisabled && (
+        <div className="bg-blue-600/30 border border-blue-400/50 rounded-lg px-4 py-2 text-center">
+          <div className="text-blue-200 text-xs font-semibold uppercase tracking-wide mb-1">
+            Recommended Play
+          </div>
+          <div className="text-white text-lg font-bold">
+            {getActionLabel(strategyHint.action)}
+          </div>
+          {strategyHint.explanation && (
+            <div className="text-blue-200 text-xs mt-1">
+              {strategyHint.explanation}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Game result message */}
       {isGameOver && (
         <div className="text-center space-y-2">

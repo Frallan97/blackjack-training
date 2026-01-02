@@ -1,7 +1,23 @@
 import { create } from 'zustand';
-import { Hand, GamePhase, GameResult, GameRules } from '../types/game';
+import { Hand, GamePhase, GameResult, GameRules, CountingSystemName, Card, StrategyDecision } from '../types/game';
 import { Deck } from '../game/deck';
 import { HandEvaluator, compareHands } from '../game/hand';
+import { getCountingSystem, calculateRunningCount, calculateTrueCount } from '../game/counting';
+import { getBasicStrategyDecision } from '../game/strategy';
+
+interface GameStats {
+  handsPlayed: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  blackjacks: number;
+}
+
+interface GameSettings {
+  countingSystem: CountingSystemName;
+  showCount: boolean;
+  showStrategyHints: boolean;
+}
 
 interface GameState {
   // Deck
@@ -20,6 +36,20 @@ interface GameState {
   // Game rules
   rules: GameRules;
 
+  // Counting
+  runningCount: number;
+  trueCount: number;
+  dealtCards: Card[];
+
+  // Strategy
+  currentStrategyHint: StrategyDecision | null;
+
+  // Statistics
+  stats: GameStats;
+
+  // Settings
+  settings: GameSettings;
+
   // Actions
   initializeGame: (rules: GameRules) => void;
   startNewRound: () => void;
@@ -29,6 +59,9 @@ interface GameState {
   split: () => void;
   dealerPlay: () => void;
   resetGame: () => void;
+  updateSettings: (settings: Partial<GameSettings>) => void;
+  updateRules: (rules: Partial<GameRules>) => void;
+  resetStats: () => void;
 }
 
 const defaultRules: GameRules = {
@@ -44,6 +77,48 @@ const defaultRules: GameRules = {
   insurancePayout: 2,
 };
 
+const loadSettings = (): GameSettings => {
+  const saved = localStorage.getItem('blackjack-settings');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to load settings', e);
+    }
+  }
+  return {
+    countingSystem: 'Hi-Lo',
+    showCount: true,
+    showStrategyHints: true,
+  };
+};
+
+const loadStats = (): GameStats => {
+  const saved = localStorage.getItem('blackjack-stats');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to load stats', e);
+    }
+  }
+  return {
+    handsPlayed: 0,
+    wins: 0,
+    losses: 0,
+    pushes: 0,
+    blackjacks: 0,
+  };
+};
+
+const saveSettings = (settings: GameSettings) => {
+  localStorage.setItem('blackjack-settings', JSON.stringify(settings));
+};
+
+const saveStats = (stats: GameStats) => {
+  localStorage.setItem('blackjack-stats', JSON.stringify(stats));
+};
+
 export const useGameStore = create<GameState>((set, get) => ({
   // Initial state
   deck: null,
@@ -54,6 +129,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   phase: 'betting',
   result: null,
   rules: defaultRules,
+  runningCount: 0,
+  trueCount: 0,
+  dealtCards: [],
+  currentStrategyHint: null,
+  stats: loadStats(),
+  settings: loadSettings(),
 
   // Initialize game with rules
   initializeGame: (rules: GameRules) => {
@@ -68,12 +149,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       phase: 'betting',
       result: null,
       rules,
+      runningCount: 0,
+      trueCount: 0,
+      dealtCards: [],
+      currentStrategyHint: null,
     });
   },
 
   // Start a new round
   startNewRound: () => {
-    const { deck, rules } = get();
+    const { deck, rules, settings, dealtCards } = get();
 
     if (!deck) {
       return;
@@ -82,6 +167,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Check if deck needs reshuffle
     if (deck.needsReshuffle()) {
       deck.reset(rules.numDecks, rules.penetration);
+      // Reset count on reshuffle
+      set({ runningCount: 0, trueCount: 0, dealtCards: [] });
     }
 
     // Deal initial cards (player, dealer, player, dealer)
@@ -101,28 +188,50 @@ export const useGameStore = create<GameState>((set, get) => ({
     );
     const dealerHand = HandEvaluator.evaluateHand([dealerCard1, dealerCard2], rules);
 
+    // Update dealt cards and count
+    const newDealtCards = [...dealtCards, playerCard1, dealerCard1, playerCard2, dealerCard2];
+    const countingSystem = getCountingSystem(settings.countingSystem);
+    const runningCount = calculateRunningCount(newDealtCards, countingSystem);
+    const remainingDecks = deck.getRemainingDecks();
+    const trueCount = calculateTrueCount(runningCount, remainingDecks);
+
+    // Calculate strategy hint
+    const strategyHint = settings.showStrategyHints
+      ? getBasicStrategyDecision(playerHand, dealerCard1, rules)
+      : null;
+
     set({
       dealerHand,
       playerHands: [playerHand],
       currentHandIndex: 0,
       phase: 'player-turn',
       result: null,
-      remainingDecks: deck.getRemainingDecks(),
+      remainingDecks,
+      dealtCards: newDealtCards,
+      runningCount,
+      trueCount,
+      currentStrategyHint: strategyHint,
     });
 
     // Check for immediate blackjack
     if (playerHand.isBlackjack && dealerHand.isBlackjack) {
-      set({ phase: 'result', result: 'push' });
+      const updatedStats = { ...get().stats, handsPlayed: get().stats.handsPlayed + 1, pushes: get().stats.pushes + 1 };
+      set({ phase: 'result', result: 'push', stats: updatedStats });
+      saveStats(updatedStats);
     } else if (playerHand.isBlackjack) {
-      set({ phase: 'result', result: 'blackjack' });
+      const updatedStats = { ...get().stats, handsPlayed: get().stats.handsPlayed + 1, wins: get().stats.wins + 1, blackjacks: get().stats.blackjacks + 1 };
+      set({ phase: 'result', result: 'blackjack', stats: updatedStats });
+      saveStats(updatedStats);
     } else if (dealerHand.isBlackjack) {
-      set({ phase: 'result', result: 'loss' });
+      const updatedStats = { ...get().stats, handsPlayed: get().stats.handsPlayed + 1, losses: get().stats.losses + 1 };
+      set({ phase: 'result', result: 'loss', stats: updatedStats });
+      saveStats(updatedStats);
     }
   },
 
   // Hit - take another card
   hit: () => {
-    const { deck, playerHands, currentHandIndex, rules, phase } = get();
+    const { deck, playerHands, currentHandIndex, rules, phase, dealtCards, settings, dealerHand } = get();
 
     if (phase !== 'player-turn' || !deck) {
       return;
@@ -139,9 +248,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newPlayerHands = [...playerHands];
     newPlayerHands[currentHandIndex] = newHand;
 
+    // Update count
+    const newDealtCards = [...dealtCards, card];
+    const countingSystem = getCountingSystem(settings.countingSystem);
+    const runningCount = calculateRunningCount(newDealtCards, countingSystem);
+    const remainingDecks = deck.getRemainingDecks();
+    const trueCount = calculateTrueCount(runningCount, remainingDecks);
+
+    // Update strategy hint
+    const strategyHint = settings.showStrategyHints && !newHand.isBusted
+      ? getBasicStrategyDecision(newHand, dealerHand.cards[0], rules)
+      : null;
+
     set({
       playerHands: newPlayerHands,
-      remainingDecks: deck.getRemainingDecks(),
+      remainingDecks,
+      dealtCards: newDealtCards,
+      runningCount,
+      trueCount,
+      currentStrategyHint: strategyHint,
     });
 
     // If busted, move to next hand or dealer turn
@@ -223,20 +348,23 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Dealer plays according to rules
   dealerPlay: () => {
-    const { deck, dealerHand, playerHands, rules } = get();
+    const { deck, dealerHand, playerHands, rules, dealtCards, settings } = get();
 
     if (!deck) {
       return;
     }
 
     let currentDealerHand = dealerHand;
+    let newDealtCards = [...dealtCards];
 
     // Dealer plays only if at least one player hand is not busted
     const hasActivePlayerHand = playerHands.some((hand) => !hand.isBusted);
 
     if (!hasActivePlayerHand) {
       // All player hands busted, dealer wins without playing
-      set({ phase: 'result', result: 'loss' });
+      const updatedStats = { ...get().stats, handsPlayed: get().stats.handsPlayed + 1, losses: get().stats.losses + 1 };
+      set({ phase: 'result', result: 'loss', stats: updatedStats });
+      saveStats(updatedStats);
       return;
     }
 
@@ -249,12 +377,19 @@ export const useGameStore = create<GameState>((set, get) => ({
         break;
       }
 
+      newDealtCards.push(card);
       currentDealerHand = HandEvaluator.addCardToHand(
         currentDealerHand,
         card,
         rules
       );
     }
+
+    // Update count with dealer's cards
+    const countingSystem = getCountingSystem(settings.countingSystem);
+    const runningCount = calculateRunningCount(newDealtCards, countingSystem);
+    const remainingDecks = deck.getRemainingDecks();
+    const trueCount = calculateTrueCount(runningCount, remainingDecks);
 
     // Determine result for each hand (for now, just use first hand)
     const playerHand = playerHands[0];
@@ -271,17 +406,63 @@ export const useGameStore = create<GameState>((set, get) => ({
       result = 'push';
     }
 
+    // Update statistics
+    const currentStats = get().stats;
+    const updatedStats = {
+      ...currentStats,
+      handsPlayed: currentStats.handsPlayed + 1,
+      wins: result === 'win' || result === 'blackjack' ? currentStats.wins + 1 : currentStats.wins,
+      losses: result === 'loss' ? currentStats.losses + 1 : currentStats.losses,
+      pushes: result === 'push' ? currentStats.pushes + 1 : currentStats.pushes,
+      blackjacks: result === 'blackjack' ? currentStats.blackjacks + 1 : currentStats.blackjacks,
+    };
+
     set({
       dealerHand: currentDealerHand,
       phase: 'result',
       result,
-      remainingDecks: deck.getRemainingDecks(),
+      remainingDecks,
+      dealtCards: newDealtCards,
+      runningCount,
+      trueCount,
+      stats: updatedStats,
+      currentStrategyHint: null,
     });
+
+    saveStats(updatedStats);
   },
 
   // Reset game to initial state
   resetGame: () => {
     const { rules } = get();
     get().initializeGame(rules);
+  },
+
+  // Update settings
+  updateSettings: (newSettings: Partial<GameSettings>) => {
+    const settings = { ...get().settings, ...newSettings };
+    set({ settings });
+    saveSettings(settings);
+  },
+
+  // Update rules
+  updateRules: (newRules: Partial<GameRules>) => {
+    const rules = { ...get().rules, ...newRules };
+    set({ rules });
+    // Reinitialize game with new rules
+    get().initializeGame(rules);
+  },
+
+  // Reset statistics
+  resetStats: () => {
+    const freshStats: GameStats = {
+      handsPlayed: 0,
+      wins: 0,
+      losses: 0,
+      pushes: 0,
+      blackjacks: 0,
+    };
+    set({ stats: freshStats });
+    saveStats(freshStats);
   },
 }));
