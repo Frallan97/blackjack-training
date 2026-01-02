@@ -43,26 +43,27 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
   return (
     <div
       className={cn(
-        'min-h-screen bg-gradient-to-br from-green-800 via-green-700 to-green-900',
+        'min-h-screen w-full bg-gradient-to-br from-green-800 via-green-700 to-green-900',
         'flex flex-col',
         className
       )}
     >
       {/* Header */}
-      <div className="bg-black/20 p-4">
-        <div className="px-6 flex items-center justify-between">
+      <div className="bg-black/20 p-3 md:p-4">
+        <div className="px-2 md:px-6 flex items-center justify-between gap-2">
           <div className="text-center flex-1">
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-xl md:text-3xl font-bold text-white">
               Blackjack Card Counting Trainer
             </h1>
-            <p className="text-white/70 mt-1 text-sm">Master card counting and basic strategy</p>
+            <p className="text-white/70 mt-1 text-xs md:text-sm hidden sm:block">Master card counting and basic strategy</p>
           </div>
           <Button
             onClick={() => setShowSettings(!showSettings)}
             variant="outline"
-            className="border-white/30 text-white hover:bg-white/10"
+            size="sm"
+            className="border-white/30 text-white hover:bg-white/10 text-xs md:text-sm"
           >
-            ⚙️ Settings
+            <span className="hidden sm:inline">⚙️ </span>Settings
           </Button>
         </div>
       </div>
@@ -75,22 +76,30 @@ export const GameTable: React.FC<GameTableProps> = ({ className }) => {
       )}
 
       {/* Game table */}
-      <div className="flex-1 flex gap-6 p-6 w-full">
-        {/* Left Sidebar - Statistics */}
-        <div className="w-80 flex-shrink-0 space-y-4">
+      <div className="flex-1 flex flex-col lg:flex-row gap-3 md:gap-6 p-3 md:p-6 w-full">
+        {/* Left Sidebar - Statistics (hidden on mobile, shown on lg+) */}
+        <div className="hidden lg:flex lg:w-80 flex-shrink-0 flex-col gap-4">
           <StatsPanel />
           <CountDisplay />
         </div>
 
         {/* Main Game Area */}
-        <div className="flex-1 flex flex-col justify-between min-w-0 max-w-6xl mx-auto">
+        <div className="flex-1 flex flex-col justify-between min-w-0">
           {/* Dealer area */}
           <DealerArea hand={dealerHand} showHoleCard={showDealerHoleCard} />
 
+          {/* Mobile stats - shown only on mobile */}
+          <div className="lg:hidden space-y-3 mb-4">
+            <div className="grid grid-cols-2 gap-3">
+              <CountDisplay />
+              <StatsPanel className="col-span-1" />
+            </div>
+          </div>
+
           {/* Center info */}
-          <div className="flex items-center justify-center py-4">
-            <div className="bg-black/30 px-6 py-3 rounded-lg">
-              <div className="text-white text-sm font-medium">
+          <div className="flex items-center justify-center py-2 md:py-4">
+            <div className="bg-black/30 px-4 md:px-6 py-2 md:py-3 rounded-lg">
+              <div className="text-white text-xs md:text-sm font-medium">
                 Phase:{' '}
                 <span className="text-yellow-400">
                   {phase === 'betting' && 'Waiting to start'}
