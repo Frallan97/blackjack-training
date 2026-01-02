@@ -99,20 +99,35 @@ export const GameControls: React.FC<GameControlsProps> = ({
         <div className="text-center space-y-2">
           {/* Main result for single hand */}
           {playerHands.length === 1 && (
-            <div
-              className={cn(
-                'text-2xl font-bold',
-                result === 'win' || result === 'blackjack'
-                  ? 'text-green-400'
-                  : result === 'loss'
-                  ? 'text-red-400'
-                  : 'text-yellow-400'
+            <div className="space-y-2">
+              <div
+                className={cn(
+                  'text-2xl font-bold',
+                  result === 'win' || result === 'blackjack'
+                    ? 'text-green-400'
+                    : result === 'loss'
+                    ? 'text-red-400'
+                    : 'text-yellow-400'
+                )}
+              >
+                {result === 'win' && 'You Win!'}
+                {result === 'loss' && 'Dealer Wins'}
+                {result === 'push' && 'Push'}
+                {result === 'blackjack' && 'Blackjack!'}
+              </div>
+
+              {/* Dealer Blackjack Info */}
+              {result === 'loss' && playerHands[0]?.cards.length === 2 && !playerHands[0].isBlackjack && (
+                <div className="bg-blue-600/20 border border-blue-400/40 rounded-lg px-4 py-2 max-w-md mx-auto">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-300 text-lg">ℹ️</span>
+                    <div className="text-blue-200 text-xs text-left">
+                      <strong>Dealer Blackjack:</strong> When the dealer has blackjack (Ace + 10-value card),
+                      the round ends immediately. All players without blackjack lose their bets. This is standard casino rules.
+                    </div>
+                  </div>
+                </div>
               )}
-            >
-              {result === 'win' && 'You Win!'}
-              {result === 'loss' && 'Dealer Wins'}
-              {result === 'push' && 'Push'}
-              {result === 'blackjack' && 'Blackjack!'}
             </div>
           )}
 
